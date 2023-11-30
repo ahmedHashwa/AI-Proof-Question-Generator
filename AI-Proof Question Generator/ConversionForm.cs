@@ -1,23 +1,37 @@
+using System.ComponentModel;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace AIProofGen
 {
-    public partial class ConversionForm : Form
+    public partial class ConversionForm : Form, INotifyPropertyChanged
     {
         private ConversionForm()
         {
             InitializeComponent();
-            UpdateAntiCheatingSentences();
-          
+            CutOffIndexTextBox.DataBindings.Add(nameof(TextBox.Text), this, nameof(CutOffIndex));
+            CutOffIndexTrackBar.DataBindings.Add(nameof(TrackBar.Value), this, nameof(CutOffIndex));
+            PointsPerCharacterTextBox.DataBindings.Add(nameof(TextBox.Text), this, nameof(PointsPerCharacter));
+            PointsPerCharacterTrackBar.DataBindings.Add(nameof(TrackBar.Value), this, nameof(PointsPerCharacter));
+            FontSizeTextBox.DataBindings.Add(nameof(TextBox.Text), this, nameof(FontSize));
+            FontSizeTrackBar.DataBindings.Add(nameof(TrackBar.Value), this, nameof(FontSize));
         }
 
-        public static ConversionForm Instance { get; private set; } = new();
-        private void UpdateAntiCheatingSentences()
+
+        public bool UseGlobalKeyForImageConversion
         {
-            _antiCheatingSentences = AntiCheatingLabels.Lines;
+            get => UseGlobalKeyConvertToImageCheckBox.Checked;
+            set => UseGlobalKeyConvertToImageCheckBox.Checked = value;
         }
+        public bool UseGlobalKeyForTextReplacement
+        {
+            get => UseGlobalKeyReplaceTextCheckBox.Checked;
+            set => UseGlobalKeyReplaceTextCheckBox.Checked = value;
+        }
+        public static ConversionForm Instance { get; } = new();
+
 
         public static string GetRandomString()
         {
@@ -26,36 +40,55 @@ namespace AIProofGen
             return randomName;
         }
 
+        public int FontSize
+        {
+            get => _fontSize;
+            set => SetField(ref _fontSize, value);
+        }
+
+        public int PointsPerCharacter
+        {
+            get => _pointsPerCharacter;
+            set => SetField(ref _pointsPerCharacter, value);
+        }
+
+        public int CutOffIndex
+        {
+            get => _cutOffIndex;
+            set => SetField(ref _cutOffIndex, value);
+        }
+
         private void Convert_Click(object sender, EventArgs e)
         {
-            int.TryParse(CutOffIndexTextBox.Text, out _cutOffIndex);
-            int.TryParse(TextSizeTextBox.Text, out _fontSize);
             ConvertClipboardTextToImage();
         }
 
-        private static string[]? _antiCheatingSentences;
         private static string _lastSentence = string.Empty;
-        private static int _cutOffIndex = 20;
-        private static int _fontSize = 24;
-        private static int _pointsPerCharacter = 15;
+        private int _cutOffIndex = 20;
+        private int _fontSize = 24;
+        private int _pointsPerCharacter = 15;
+
+
+
         public static void ConvertClipboardTextToImage()
         {
-            _cutOffIndex = _cutOffIndex == default ? 20 : _cutOffIndex;
-            _fontSize = _fontSize == default ? 24 : _fontSize;
-            // Get text from clipboard
-            var text = Clipboard.GetText();
-
+            var cutOffIndex = Instance.CutOffIndex;
+            var fontSize = Instance.FontSize;
+            var pointsPerCharacter = Instance.PointsPerCharacter;
+            var antiCheatingSentences = Instance.AntiCheatingLabelsTextBox.Lines;
+            var text = Instance.UseClipboardCheckBox.CheckState switch
+            {
+                CheckState.Checked => Clipboard.GetText(),
+                CheckState.Unchecked => Instance.SourceTextBox.Text,
+                _ => null
+            };
             if (string.IsNullOrWhiteSpace(text))
             {
-                if (string.IsNullOrWhiteSpace(Instance?.SourceTextBox.Text))
-                {
-                    return;
-                }
-
-                text = Instance.SourceTextBox.Text;
-
+                return;
             }
-            for (var i = _cutOffIndex; i < text.Length; i += _cutOffIndex)
+            // Get text from clipboard
+
+            for (var i = cutOffIndex; i < text.Length; i += cutOffIndex)
             {
                 var spaceIndex = text.LastIndexOf(' ', i);
                 if (spaceIndex > 0)
@@ -63,7 +96,7 @@ namespace AIProofGen
                     text = text[..spaceIndex] + Environment.NewLine + text[(spaceIndex + 1)..];
                 }
             }
-            var font = new Font(FontFamily.GenericMonospace, _fontSize, FontStyle.Bold);
+            var font = new Font(FontFamily.GenericMonospace, fontSize, FontStyle.Bold);
             // Measure the size of the text
             using var tempBitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
             using var tempGraphics = Graphics.FromImage(tempBitmap);
@@ -81,7 +114,7 @@ namespace AIProofGen
 
             var newFont = new Font(FontFamily.GenericMonospace, 40, FontStyle.Bold);
         TryAgain:
-            var antiCheatingSentence = _antiCheatingSentences?[rand.Next(0, _antiCheatingSentences.Length)] ?? "Don't Cheat";
+            var antiCheatingSentence = antiCheatingSentences?[rand.Next(0, antiCheatingSentences.Length)] ?? "Don't Cheat";
             if (_lastSentence == antiCheatingSentence)
                 goto TryAgain;
             _lastSentence = antiCheatingSentence;
@@ -90,7 +123,7 @@ namespace AIProofGen
 
             g.DrawString(text, font, Brushes.SlateGray, 5, 5);
             g.DrawString(text, font, Brushes.Black, 0, 0);
-            for (var i = 0; i < text.Length * _pointsPerCharacter; i++)
+            for (var i = 0; i < text.Length * pointsPerCharacter; i++)
             {
                 var r = rand.Next(1, 10);
                 float x = rand.Next(0, (int)textSize.Width);
@@ -98,9 +131,8 @@ namespace AIProofGen
                 g.FillEllipse(Brushes.Gray, x, y, r, r);
             }
 
-            if (Instance != null)
-                Instance.PreviewPictureBox.Image = bitmap;
-            if (Instance?.SetClipboardCheckBox.CheckState == CheckState.Checked)
+            Instance.PreviewPictureBox.Image = bitmap;
+            if (Instance.SetClipboardCheckBox.CheckState == CheckState.Checked)
             {
                 SetClipboardImage(bitmap);
 
@@ -221,6 +253,7 @@ namespace AIProofGen
         }
         private void ConversionForm_Load(object sender, EventArgs e)
         {
+            SourceTextBox.Text = Clipboard.GetText();
 
         }
 
@@ -231,25 +264,64 @@ namespace AIProofGen
 
         private void TextSizeTextBox_TextChanged(object sender, EventArgs e)
         {
-            int.TryParse(TextSizeTextBox.Text, out _fontSize);
+            int.TryParse(FontSizeTextBox.Text, out _fontSize);
 
         }
 
-        private void AntiCheatingLabels_TextChanged(object sender, EventArgs e)
-        {
-            UpdateAntiCheatingSentences();
-        }
 
-        private void PointsPerCharacterTrackBar_Scroll(object sender, EventArgs e)
-        {
-            _pointsPerCharacter = PointsPerCharacterTrackBar.Value;
-            PointsPerCharacterLabel.Text = $"{_pointsPerCharacter}";
-        }
+
 
         private void CopyToClipboardButton_Click(object sender, EventArgs e)
         {
-            if (PreviewPictureBox.Image is Bitmap image) 
+            if (PreviewPictureBox.Image is Bitmap image)
                 SetClipboardImage(image);
+        }
+
+        private void UseClipboardCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            switch (UseClipboardCheckBox.CheckState)
+            {
+                case CheckState.Unchecked:
+                    SourceTextBox.Enabled = true;
+                    break;
+                case CheckState.Checked:
+                    SourceTextBox.Enabled = false;
+
+                    break;
+                case CheckState.Indeterminate:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void AppNotifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            WindowState = FormWindowState.Maximized;
+            Show();
+        }
+
+        private void ConversionForm_SizeChanged(object sender, EventArgs e)
+        {
+            if (WindowState== FormWindowState.Minimized)
+            {
+                Hide();
+            }
+        }
+
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(propertyName);
+            return true;
         }
     }
 }

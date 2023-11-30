@@ -21,35 +21,36 @@ namespace AIProofGen
         private static IntPtr HookCallback(
             int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && wParam == WmKeydown)
+            if (nCode < 0 || wParam != WmKeydown) return CallNextHookEx(HookId, nCode, wParam, lParam);
+            var vkCode = Marshal.ReadInt32(lParam);
+            var key = (Keys)vkCode;
+            Console.WriteLine((Keys)vkCode);
+            switch (key)
             {
-                var vkCode = Marshal.ReadInt32(lParam);
-                var key = (Keys)vkCode;
-                Console.WriteLine((Keys)vkCode);
-                switch (key)
+                case Keys.MediaPlayPause when ConversionForm.Instance.UseGlobalKeyForImageConversion:
                 {
-                    case Keys.Next or Keys.PageDown or Keys.PageUp or Keys.Play or Keys.MediaPlayPause:
-                    {
-                        SendKeys.SendWait("^{a}");
-                        SendKeys.SendWait("^{x}");
-                        ConversionForm.ConvertClipboardTextToImage();
-                        SendKeys.Send("^{v}");
-                        var randomText= ConversionForm.GetRandomString();
-                        Clipboard.SetText(randomText);
-                        SendKeys.Send("^{v}");
-                        break;
-                    }
-               
-                    case Keys.Next or Keys.Insert or Keys.Delete:
-                    {
-                        SendKeys.SendWait("^{a}");
-                        SendKeys.SendWait("^{x}");
-                        var randomText= ConversionForm.GetRandomString();
-                        Clipboard.SetText(randomText);
-                        SendKeys.Send("^{v}");
-                        break;
-                    }
+                    SendKeys.SendWait("^{a}");
+                    SendKeys.SendWait("^{x}");
+                    ConversionForm.ConvertClipboardTextToImage();
+
+                    SendKeys.Send("^{v}");
+                    Thread.Sleep(500);
+                    var randomText= ConversionForm.GetRandomString();
+                    Clipboard.SetText(randomText);
+                    SendKeys.Send("^{v}");
+                    break;
                 }
+               
+                case Keys.Insert  when ConversionForm.Instance.UseGlobalKeyForTextReplacement:
+                {
+                    SendKeys.SendWait("^{a}");
+                    SendKeys.SendWait("^{x}");
+                    var randomText= ConversionForm.GetRandomString();
+                    Clipboard.SetText(randomText);
+                    SendKeys.Send("^{v}");
+                    break;
+                }
+
             }
             return CallNextHookEx(HookId, nCode, wParam, lParam);
         }

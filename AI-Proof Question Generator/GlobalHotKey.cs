@@ -4,24 +4,18 @@ using System.Runtime.InteropServices;
 
 namespace AIProofGen
 {
-    class GlobalKeyboardHookEventArgs : HandledEventArgs
-    {
-        public GlobalKeyboardHook.KeyboardState KeyboardState { get; private set; }
-        public GlobalKeyboardHook.LowLevelKeyboardInputEvent KeyboardData { get; private set; }
-
-        public GlobalKeyboardHookEventArgs(
-            GlobalKeyboardHook.LowLevelKeyboardInputEvent keyboardData,
+    class GlobalKeyboardHookEventArgs(GlobalKeyboardHook.LowLevelKeyboardInputEvent keyboardData,
             GlobalKeyboardHook.KeyboardState keyboardState)
-        {
-            KeyboardData = keyboardData;
-            KeyboardState = keyboardState;
-        }
+        : HandledEventArgs
+    {
+        public GlobalKeyboardHook.KeyboardState KeyboardState { get; private set; } = keyboardState;
+        public GlobalKeyboardHook.LowLevelKeyboardInputEvent KeyboardData { get; private set; } = keyboardData;
     }
 
     //Based on https://gist.github.com/Stasonix
     class GlobalKeyboardHook : IDisposable
     {
-        public event EventHandler<GlobalKeyboardHookEventArgs> KeyboardPressed;
+        public event EventHandler<GlobalKeyboardHookEventArgs>? KeyboardPressed;
 
         public GlobalKeyboardHook()
         {
@@ -32,7 +26,7 @@ namespace AIProofGen
             _user32LibraryHandle = LoadLibrary("User32");
             if (_user32LibraryHandle == IntPtr.Zero)
             {
-                int errorCode = Marshal.GetLastWin32Error();
+                var errorCode = Marshal.GetLastWin32Error();
                 throw new Win32Exception(errorCode, $"Failed to load library 'User32.dll'. Error {errorCode}: {new Win32Exception(Marshal.GetLastWin32Error()).Message}.");
             }
 
@@ -41,7 +35,7 @@ namespace AIProofGen
             _windowsHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, _user32LibraryHandle, 0);
             if (_windowsHookHandle == IntPtr.Zero)
             {
-                int errorCode = Marshal.GetLastWin32Error();
+                var errorCode = Marshal.GetLastWin32Error();
                 throw new Win32Exception(errorCode, $"Failed to adjust keyboard hooks for '{Process.GetCurrentProcess().ProcessName}'. Error {errorCode}: {new Win32Exception(Marshal.GetLastWin32Error()).Message}.");
             }
         }
@@ -55,7 +49,7 @@ namespace AIProofGen
                 {
                     if (!UnhookWindowsHookEx(_windowsHookHandle))
                     {
-                        int errorCode = Marshal.GetLastWin32Error();
+                        var errorCode = Marshal.GetLastWin32Error();
                         throw new Win32Exception(errorCode, $"Failed to remove keyboard hooks for '{Process.GetCurrentProcess().ProcessName}'. Error {errorCode}: {new Win32Exception(Marshal.GetLastWin32Error()).Message}.");
                     }
                     _windowsHookHandle = IntPtr.Zero;
@@ -69,7 +63,7 @@ namespace AIProofGen
             {
                 if (!FreeLibrary(_user32LibraryHandle)) // reduces reference to library by 1.
                 {
-                    int errorCode = Marshal.GetLastWin32Error();
+                    var errorCode = Marshal.GetLastWin32Error();
                     throw new Win32Exception(errorCode, $"Failed to unload library 'User32.dll'. Error {errorCode}: {new Win32Exception(Marshal.GetLastWin32Error()).Message}.");
                 }
                 _user32LibraryHandle = IntPtr.Zero;
@@ -183,23 +177,23 @@ namespace AIProofGen
 
         public IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            bool fEatKeyStroke = false;
+            var fEatKeyStroke = false;
 
             var wparamTyped = wParam.ToInt32();
             if (Enum.IsDefined(typeof(KeyboardState), wparamTyped))
             {
-                object o = Marshal.PtrToStructure(lParam, typeof(LowLevelKeyboardInputEvent));
-                LowLevelKeyboardInputEvent p = (LowLevelKeyboardInputEvent)o;
+                var o = Marshal.PtrToStructure(lParam, typeof(LowLevelKeyboardInputEvent));
+                var p = (LowLevelKeyboardInputEvent)o;
 
                 var eventArguments = new GlobalKeyboardHookEventArgs(p, (KeyboardState)wparamTyped);
 
-                EventHandler<GlobalKeyboardHookEventArgs> handler = KeyboardPressed;
+                EventHandler<GlobalKeyboardHookEventArgs>? handler = KeyboardPressed;
                 handler?.Invoke(this, eventArguments);
 
                 fEatKeyStroke = eventArguments.Handled;
             }
 
-            return fEatKeyStroke ? (IntPtr)1 : CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
+            return fEatKeyStroke ? 1 : CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
         }
     }
 }
