@@ -10,6 +10,11 @@
     <ApplicationIcon>logo.ico</ApplicationIcon>
     <UseWPF>True</UseWPF>
     <RootNamespace>AIProofGen</RootNamespace>
+    <PackageId>AIProofGen</PackageId>
+    <Authors>Ahmed Samy Moursi</Authors>
+    <Title>AI-Proof Question Generator</Title>
+    <PackageIcon>logo.png</PackageIcon>
+    <RepositoryUrl>https://github.com/ahmedHashwa/AI-Proof-Question-Generator</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +34,13 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
